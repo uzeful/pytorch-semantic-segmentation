@@ -1,6 +1,7 @@
 import random
 
 import numpy as np
+from skimage.filters import gaussian
 import torch
 from PIL import Image, ImageFilter
 
@@ -9,13 +10,6 @@ class RandomVerticalFlip(object):
     def __call__(self, img):
         if random.random() < 0.5:
             return img.transpose(Image.FLIP_TOP_BOTTOM)
-        return img
-
-
-class RandomGaussianBlur(object):
-    def __call__(self, img):
-        if random.random() < 0.2:
-            return img.filter(ImageFilter.BLUR)
         return img
 
 
@@ -37,18 +31,22 @@ class MaskToTensor(object):
 
 class FreeScale(object):
     def __init__(self, size, interpolation=Image.BILINEAR):
-        self.size = size  # (w, h)
+        self.size = tuple(reversed(size))  # size: (h, w)
         self.interpolation = interpolation
 
     def __call__(self, img):
         return img.resize(self.size, self.interpolation)
 
 
-class ChangeLabel(object):
-    def __init__(self, ori_label, new_label):
-        self.ori_label = ori_label
-        self.new_label = new_label
+class FlipChannels(object):
+    def __call__(self, img):
+        img = np.array(img)[:, :, ::-1]
+        return Image.fromarray(img.astype(np.uint8))
 
-    def __call__(self, mask):
-        mask[mask == self.ori_label] = self.new_label
-        return mask
+
+class RandomGaussianBlur(object):
+    def __call__(self, img):
+        sigma = 0.15 + random.random() * 1.15
+        blurred_img = gaussian(np.array(img), sigma=sigma, multichannel=True)
+        blurred_img *= 255
+        return Image.fromarray(blurred_img.astype(np.uint8))
